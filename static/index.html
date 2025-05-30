@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ thống camera giao thông</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #f9fafb; }
+        .header { background-color: #1a2a44; color: white; }
+        .btn-primary { background-color: #ff4d4f; color: white; }
+        .btn-primary:hover { background-color: #e63946; }
+        .feature-card { background-color: #fff5f5; border-radius: 8px; padding: 16px; }
+        .upload-box { min-height: 200px; display: flex; align-items: center; justify-content: center; }
+        video { max-width: 100%; max-height: 100%; }
+        img.incident-image { max-width: 100%; max-height: 300px; object-fit: contain; }
+    </style>
+</head>
+<body>
+    <!-- Landing Page -->
+    <div id="landing-page">
+        <!-- Header -->
+        <header class="header flex justify-between items-center p-4">
+            <div class="text-xl font-bold">HỆ THỐNG CAMERA GIAO THÔNG</div>
+            <button onclick="showLogin()" class="btn-primary px-4 py-2 rounded">Đăng nhập</button>
+        </header>
+
+        <!-- Upload Section -->
+        <section class="p-8 text-center">
+            <h2 class="text-2xl font-bold mb-4">Test model bằng video</h2>
+            <div id="upload-box" class="border-2 border-dashed border-gray-300 p-8 rounded-lg upload-box">
+                <input type="file" id="video-upload" accept="video/*" class="hidden" onchange="previewVideo()">
+                <label for="video-upload" id="upload-label" class="cursor-pointer text-blue-500">Click để tải video</label>
+            </div>
+            <button onclick="submitVideo()" class="btn-primary px-4 py-2 mt-4 rounded">Submit</button>
+        </section>
+    </div>
+
+    <!-- Login Page -->
+    <div id="login-page" class="hidden fixed inset-0 bg-white flex items-center justify-center">
+        <div class="w-full max-w-md p-8 border rounded-lg shadow-lg">
+            <h2 class="text-2xl font-bold mb-4 text-center">Đăng nhập</h2>
+            <div class="mb-4">
+                <label class="block text-gray-700">Email *</label>
+                <input type="email" id="email" value="nguyenphuccuongtm@gmail.com" class="w-full p-2 border rounded">
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-700">Mật khẩu *</label>
+                <input type="password" id="password" value="Cuongbk2003" class="w-full p-2 border rounded">
+            </div>
+            <button onclick="login()" class="btn-primary w-full py-2 rounded">Đăng nhập</button>
+        </div>
+    </div>
+
+    <!-- Dashboard Page -->
+    <div id="dashboard-page" class="hidden">
+        <!-- Header -->
+        <header class="header flex justify-between items-center p-4">
+            <div class="text-xl font-bold">HỆ THỐNG CAMERA GIAO THÔNG</div>
+            <button onclick="logout()" class="btn-primary px-4 py-2 rounded">Đăng xuất</button>
+        </header>
+
+        <!-- Sidebar and Content -->
+        <div class="flex">
+            <!-- Sidebar -->
+            <aside class="w-1/5 bg-gray-800 text-white p-4">
+                <div class="mb-4 cursor-pointer" onclick="showDashboard()">📊 DASHBOARD</div>
+                <div class="cursor-pointer" onclick="showAccidentList()">📧 TẤT CẢ DỮ LIỆU</div>
+            </aside>
+
+            <!-- Main Content -->
+            <main class="w-4/5 p-8">
+                <div id="dashboard-content" class="hidden">
+                    <h2 class="text-xl font-bold mb-4">Dashboard</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                        <div class="p-4 bg-gray-100 rounded-lg">
+                            <h3 class="font-bold">Số vụ tai nạn</h3>
+                            <p id="total-accidents">0</p>
+                        </div>
+                        <div class="p-4 bg-gray-100 rounded-lg">
+                            <h3 class="font-bold">Số vụ tai nạn gần đây (30 ngày vừa qua)</h3>
+                            <p id="recent-accidents">0</p>
+                        </div>
+                        <div class="p-4 bg-gray-100 rounded-lg">
+                            <h3 class="font-bold">Độ chính xác trung bình</h3>
+                            <p id="avg-severity">0%</p>
+                        </div>
+                    </div>
+                    <h2 class="text-xl font-bold mb-4">Số vụ tại nạn giao thông (Hàng tháng)</h2>
+                    <canvas id="accidentChart" width="400" height="200"></canvas>
+                </div>
+
+                <!-- Accident List Section -->
+                <div id="accident-list-content" class="hidden">
+                    <h2 class="text-xl font-bold mb-4">Dữ liệu tai nạn</h2>
+                    <table class="w-full border-collapse">
+                        <thead>
+                            <tr class="bg-gray-100">
+                                <th class="border p-2">ID</th>
+                                <th class="border p-2">Ngày giờ</th>
+                                <th class="border p-2">Địa chỉ</th>
+                                <th class="border p-2">Độ chính xác(%)</th>
+                                <th class="border p-2">Mức độ nghiêm trọng</th>
+                                <th class="border p-2">Xem chi tiết</th>
+                            </tr>
+                        </thead>
+                        <tbody id="accident-table">
+                            <!-- Data will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Accident Details Section -->
+                <div id="accident-details-content" class="hidden">
+                    <h2 class="text-xl font-bold mb-4">Thông tin chi tiết tai nạn</h2>
+                    <div class="p-4 bg-gray-100 rounded-lg">
+                        <p><strong>ID:</strong> <span id="detail-id"></span></p>
+                        <p><strong>Ngày & giờ:</strong> <span id="detail-date"></span></p>
+                        <p><strong>Địa chỉ:</strong> <span id="detail-address"></span></p>
+                        <p><strong>Độ chính xác (%):</strong> <span id="detail-severity"></span></p>
+                        <p><strong>Mức độ nghiêm trọng:</strong> <span id="detail-severity-label"></span></p>
+                        <p><strong>Ảnh:</strong></p>
+                        <img id="detail-image" src="" alt="Incident Image" class="incident-image rounded-lg">
+                    </div>
+                    <button onclick="showAccidentList()" class="btn-primary px-4 py-2 mt-4 rounded">Quay lại</button>
+                    <button onclick="deleteAccident(document.getElementById('detail-id').textContent)" class="btn-primary px-4 py-2 mt-4 ml-2 rounded bg-red-500 hover:bg-red-600">Xóa</button>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        let currentUser = null;
+        let accidentsData = [];
+    
+        // Page Navigation
+        function showLogin() {
+            document.getElementById('landing-page').classList.add('hidden');
+            document.getElementById('login-page').classList.remove('hidden');
+        }
+    
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+    
+            try {
+                const response = await fetch('http://localhost:5000/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const result = await response.json();
+    
+                if (result.success) {
+                    currentUser = email;
+                    document.getElementById('login-page').classList.add('hidden');
+                    document.getElementById('dashboard-page').classList.remove('hidden');
+                    await loadDashboard();
+                } else {
+                    alert('Login failed: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Xảy ra lỗi khi đăng nhập. Vui lòng thử lại');
+            }
+        }
+    
+        function logout() {
+            currentUser = null;
+            document.getElementById('dashboard-page').classList.add('hidden');
+            document.getElementById('landing-page').classList.remove('hidden');
+        }
+    
+        function scrollToUpload() {
+            document.querySelector('.p-8.text-center').scrollIntoView({ behavior: 'smooth' });
+        }
+    
+        function initializeAccidentChart() {
+            // Verify the canvas element exists
+            const canvas = document.getElementById('accidentChart');
+            if (!canvas) {
+                console.error('Canvas element with ID "accidentChart" not found!');
+                return;
+            }
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                console.error('Failed to get 2D context for canvas!');
+                return;
+            }
+            console.log('Canvas element found, initializing chart...');
+
+            fetch('http://localhost:5000/accident-stats')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Chart data received:', data);
+                    if (data.error) {
+                        console.error('Error fetching chart data:', data.error);
+                        alert('Error loading chart data: ' + data.error);
+                        data = {
+                            labels: ['Error'],
+                            data: [0]
+                        };
+                    }
+
+                    // Destroy the existing chart if it exists
+                    if (window.accidentChart && typeof window.accidentChart.destroy === 'function') {
+                        window.accidentChart.destroy();
+                        console.log('Previous chart destroyed.');
+                    }
+
+                    // Create the new chart
+                    window.accidentChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: data.labels,
+                            datasets: [{
+                                label: 'Số vụ tai nạn',
+                                data: data.data,
+                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                borderColor: 'rgba(75, 192, 192, 1)',
+                                borderWidth: 2,
+                                fill: true,
+                                tension: 0.3
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                x: {
+                                    title: {
+                                        display: true,
+                                        text: 'Tháng'
+                                    },
+                                    ticks: {
+                                        autoSkip: false,  // Ensure all labels are shown
+                                        maxRotation: 45,  // Rotate labels for better readability
+                                        minRotation: 45
+                                    }
+                                },
+                                y: {
+                                    beginAtZero: true,
+                                    title: {
+                                        display: true,
+                                        text: 'Số vụ tai nạn'
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    window.accidentChart.update();
+                    console.log('Chart initialized successfully:', window.accidentChart);
+                })
+                .catch(error => {
+                    console.error('Error fetching chart data:', error);
+                    alert('Error loading chart data: ' + error.message);
+                    const ctx = document.getElementById('accidentChart').getContext('2d');
+                    if (window.accidentChart && typeof window.accidentChart.destroy === 'function') {
+                        window.accidentChart.destroy();
+                    }
+                    window.accidentChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: ['Error'],
+                            datasets: [{
+                                label: 'Số vụ tai nạn',
+                                data: [0],
+                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                borderColor: 'rgba(75, 192, 192, 1)',
+                                borderWidth: 2,
+                                fill: true,
+                                tension: 0.3
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                x: {
+                                    title: {
+                                        display: true,
+                                        text: 'Tháng'
+                                    }
+                                },
+                                y: {
+                                    beginAtZero: true,
+                                    title: {
+                                        display: true,
+                                        text: 'Số vụ tai nạn'
+                                    }
+                                }
+                            }
+                        }
+                    });
+                });
+        }
+        function showDashboard() {
+            document.getElementById('dashboard-content').classList.remove('hidden');
+            document.getElementById('accident-list-content').classList.add('hidden');
+            document.getElementById('accident-details-content').classList.add('hidden');
+            initializeAccidentChart();
+        }
+    
+        function showAccidentList() {
+            document.getElementById('dashboard-content').classList.add('hidden');
+            document.getElementById('accident-list-content').classList.remove('hidden');
+            document.getElementById('accident-details-content').classList.add('hidden');
+            loadAccidentList();
+        }
+    
+        function showAccidentDetails(id) {
+            const accident = accidentsData.find(a => a.id === id);
+            if (accident) {
+                document.getElementById('detail-id').textContent = accident.id;
+                document.getElementById('detail-date').textContent = accident.date;
+                document.getElementById('detail-address').textContent = accident.address;
+                document.getElementById('detail-severity').textContent = accident.severity;
+                document.getElementById('detail-severity-label').textContent = accident.severityLabel;
+                const imageUrl = accident.image_url || 'https://via.placeholder.com/400x300';
+                document.getElementById('detail-image').src = imageUrl;
+    
+                document.getElementById('dashboard-content').classList.add('hidden');
+                document.getElementById('accident-list-content').classList.add('hidden');
+                document.getElementById('accident-details-content').classList.remove('hidden');
+            }
+        }
+    
+        // Video Preview
+        function previewVideo() {
+            const videoInput = document.getElementById('video-upload');
+            const uploadBox = document.getElementById('upload-box');
+            const uploadLabel = document.getElementById('upload-label');
+    
+            if (videoInput.files && videoInput.files[0]) {
+                const videoURL = URL.createObjectURL(videoInput.files[0]);
+                uploadBox.innerHTML = `
+                    <input type="file" id="video-upload" accept="video/*" class="hidden" onchange="previewVideo()">
+                    <video controls class="rounded-lg">
+                        <source src="${videoURL}" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                `;
+                const newVideoInput = document.getElementById('video-upload');
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(videoInput.files[0]);
+                newVideoInput.files = dataTransfer.files;
+            }
+        }
+    
+        // Video Upload and Submission
+        async function submitVideo() {
+            const videoInput = document.getElementById('video-upload');
+            if (!videoInput.files[0]) {
+                alert('Please upload a video first!');
+                return;
+            }
+    
+            console.log('Selected file:', videoInput.files[0]);
+    
+            const formData = new FormData();
+            formData.append('video', videoInput.files[0]);
+    
+            try {
+                const response = await fetch('http://localhost:5000/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    alert(`Phát hiện tai nạn giao thông: ${result.accident ? 'Đúng' : 'Sai'}\nMức độ nghiêm trọng: ${result.severity}%\nĐịa chỉ: ${result.location}`);
+                    if (result.accident) {
+                        const accidentsResponse = await fetch('http://localhost:5000/accidents');
+                        accidentsData = await accidentsResponse.json();
+                        if (currentUser) {
+                            updateDashboardStats();
+                            if (!document.getElementById('accident-list-content').classList.contains('hidden')) {
+                                loadAccidentList();
+                            }
+                        }
+                    }
+                } else {
+                    alert(`Error: ${result.error}`);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error processing video. Please try again.');
+            }
+        }
+
+
+        async function deleteAccident(id) {
+            if (!confirm(`Bạn có xác nhận xóa vụ tai nạn có ID ${id}?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`http://localhost:5000/accidents/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert('Xóa thành công.');
+                    // Refresh the accident data
+                    const accidentsResponse = await fetch('http://localhost:5000/accidents');
+                    accidentsData = await accidentsResponse.json();
+                    // Update the UI
+                    loadAccidentList();
+                    updateDashboardStats();
+                    // Refresh the chart if the dashboard is visible
+                    if (!document.getElementById('dashboard-content').classList.contains('hidden')) {
+                        initializeAccidentChart();
+                    }
+                } else {
+                    alert(`Lỗi khi xóa vụ tai nạn: ${result.error}`);
+                }
+            } catch (error) {
+                console.error('Lỗi khi xóa vụ tai nạn:', error);
+                alert('Lỗi khi xóa. Vui lòng thử lại.');
+            }
+        }
+
+    
+        // Update dashboard stats without reloading the chart
+        function updateDashboardStats() {
+            const totalAccidents = accidentsData.length;
+            const recentAccidents = accidentsData.filter(a => {
+                const accidentDate = new Date(a.date);
+                const now = new Date();
+                const diffDays = (now - accidentDate) / (1000 * 60 * 60 * 24);
+                return diffDays <= 30;
+            }).length;
+            const avgSeverity = totalAccidents ? (accidentsData.reduce((sum, a) => sum + a.severity, 0) / totalAccidents).toFixed(2) : 0;
+    
+            document.getElementById('total-accidents').textContent = totalAccidents;
+            document.getElementById('recent-accidents').textContent = recentAccidents;
+            document.getElementById('avg-severity').textContent = `${avgSeverity}%`;
+        }
+    
+        // Dashboard Data
+        async function loadDashboard() {
+            try {
+                const response = await fetch('http://localhost:5000/accidents');
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch accidents: ${response.statusText}`);
+                }
+                accidentsData = await response.json();
+    
+                // Update Dashboard Stats
+                updateDashboardStats();
+    
+                // Show the dashboard, which will initialize the chart
+                showDashboard();
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+                alert('Error loading dashboard data: ' + error.message);
+            }
+        }
+    
+        function loadAccidentList() {
+            const tableBody = document.getElementById('accident-table');
+            tableBody.innerHTML = '';
+            accidentsData.forEach(row => {
+                tableBody.innerHTML += `
+                    <tr>
+                        <td class="border p-2">${row.id}</td>
+                        <td class="border p-2">${row.date}</td>
+                        <td class="border p-2">${row.address}</td>
+                        <td class="border p-2">${row.severity}</td>
+                        <td class="border p-2">${row.severityLabel}</td>
+                        <td class="border p-2">
+                            <a href="#" onclick="showAccidentDetails('${row.id}')" class="text-blue-500">View →</a>
+                            <button onclick="deleteAccident('${row.id}')" class="text-red-500 ml-2">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+    </script>
+</body>
+</html>
